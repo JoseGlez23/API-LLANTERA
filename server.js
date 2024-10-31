@@ -10,10 +10,10 @@ app.use(cors());
 app.use(bodyParser.json());
 
 const dbConfig = {
-  host: "127.0.0.1", // Cambia según tu configuración
+  host: "127.0.0.1",
   user: "root",
   password: "",
-  database: "llanteria", // Asegúrate de usar tu base de datos de llantera
+  database: "llanteria",
   connectTimeout: 10000,
   acquireTimeout: 10000,
   connectionLimit: 10,
@@ -85,9 +85,7 @@ app.get("/api/administrador", (req, res) => {
   req.db.query(sql, (err, results) => {
     if (err) {
       console.error("Error querying administrador table:", err);
-      return res
-        .status(500)
-        .send("Error al obtener administradores: " + err.message);
+      return res.status(500).send("Error al obtener administradores: " + err.message);
     }
     res.status(200).send(results);
   });
@@ -100,9 +98,7 @@ app.get("/api/administrador/:id", (req, res) => {
   req.db.query(sql, [id], (err, results) => {
     if (err) {
       console.error("Error al obtener el administrador:", err);
-      return res
-        .status(500)
-        .send("Error al obtener el administrador: " + err.message);
+      return res.status(500).send("Error al obtener el administrador: " + err.message);
     }
     if (results.length === 0) {
       return res.status(404).send("Administrador no encontrado.");
@@ -117,9 +113,7 @@ app.get("/api/neumaticos", (req, res) => {
   req.db.query(sql, (err, results) => {
     if (err) {
       console.error("Error querying neumaticos table:", err);
-      return res
-        .status(500)
-        .send("Error querying neumaticos table: " + err.message);
+      return res.status(500).send("Error querying neumaticos table: " + err.message);
     }
     res.status(200).send(results);
   });
@@ -132,9 +126,7 @@ app.get("/api/neumaticos/:id", (req, res) => {
   req.db.query(sql, [id], (err, results) => {
     if (err) {
       console.error("Error querying neumaticos table:", err);
-      return res
-        .status(500)
-        .send("Error al obtener el neumático: " + err.message);
+      return res.status(500).send("Error al obtener el neumático: " + err.message);
     }
     if (results.length === 0) {
       return res.status(404).send("Neumático no encontrado.");
@@ -179,9 +171,7 @@ app.post("/api/neumaticos", (req, res) => {
     (err, result) => {
       if (err) {
         console.error("Error al agregar el neumático:", err);
-        return res
-          .status(500)
-          .send("Error al agregar el neumático: " + err.message);
+        return res.status(500).send("Error al agregar el neumático: " + err.message);
       }
       res.status(201).send({
         message: "Neumático agregado exitosamente",
@@ -229,9 +219,7 @@ app.put("/api/neumaticos/:id", (req, res) => {
     (err, result) => {
       if (err) {
         console.error("Error updating neumaticos:", err);
-        return res
-          .status(500)
-          .send("Error updating neumaticos: " + err.message);
+        return res.status(500).send("Error updating neumaticos: " + err.message);
       }
       res.status(200).send(result);
     }
@@ -245,9 +233,7 @@ app.delete("/api/neumaticos/:id", (req, res) => {
   req.db.query(sql, [id], (err, result) => {
     if (err) {
       console.error("Error al eliminar el neumático:", err);
-      return res
-        .status(500)
-        .send("Error al eliminar el neumático: " + err.message);
+      return res.status(500).send("Error al eliminar el neumático: " + err.message);
     }
     res.status(200).send({ message: "Neumático eliminado exitosamente" });
   });
