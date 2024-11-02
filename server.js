@@ -2,13 +2,34 @@ const express = require("express");
 const mysql = require("mysql");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 
 const app = express();
 const port = 3000;
 
+// Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
+// Configuración de almacenamiento para multer
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, "uploads");
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath);
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({ storage: storage });
+
+// Configuración de la base de datos
 const dbConfig = {
   host: "127.0.0.1",
   user: "root",
@@ -22,6 +43,7 @@ const dbConfig = {
 
 const pool = mysql.createPool(dbConfig);
 
+// Probar conexión con la base de datos
 pool.getConnection((err, connection) => {
   if (err) {
     console.error("Error connecting to the database:", err);
@@ -31,50 +53,33 @@ pool.getConnection((err, connection) => {
   console.log("Connected to the database");
 });
 
+// Middleware para agregar conexión de base de datos a cada request
 app.use((req, res, next) => {
   req.db = pool;
   next();
 });
-
-pool.on("error", function (err) {
-  console.error("Database error:", err);
-  if (err.code === "PROTOCOL_CONNECTION_LOST") {
-    handleDisconnect();
-  } else {
-    throw err;
-  }
-});
-
-function handleDisconnect() {
-  pool.getConnection((err, connection) => {
-    if (err) {
-      console.error("Error when connecting to db:", err);
-      setTimeout(handleDisconnect, 2000);
-    }
-    if (connection) connection.release();
-    console.log("Reconnected to the database");
-  });
-}
 
 // Ruta para login de administrador
 app.post("/api/login", (req, res) => {
   const { nombre, password } = req.body;
 
   if (!nombre || !password) {
-    return res.status(400).send("Nombre y password son requeridos.");
+    return res
+      .status(400)
+      .json({ message: "Nombre y password son requeridos." });
   }
 
   const sql = "SELECT * FROM administrador WHERE nombre = ? AND password = ?";
   req.db.query(sql, [nombre, password], (err, results) => {
     if (err) {
       console.error("Error querying administrador table:", err);
-      return res.status(500).send("Error en el servidor: " + err.message);
+      return res.status(500).json({ message: "Error en el servidor" });
     }
 
     if (results.length > 0) {
-      res.status(200).send({ message: "Login exitoso", admin: results[0] });
+      res.status(200).json({ message: "Login exitoso", admin: results[0] });
     } else {
-      res.status(401).send("Credenciales incorrectas");
+      res.status(401).json({ message: "Credenciales incorrectas" });
     }
   });
 });
@@ -85,25 +90,11 @@ app.get("/api/administrador", (req, res) => {
   req.db.query(sql, (err, results) => {
     if (err) {
       console.error("Error querying administrador table:", err);
-      return res.status(500).send("Error al obtener administradores: " + err.message);
+      return res
+        .status(500)
+        .json({ message: "Error al obtener administradores" });
     }
-    res.status(200).send(results);
-  });
-});
-
-// Ruta para obtener un administrador por su ID
-app.get("/api/administrador/:id", (req, res) => {
-  const { id } = req.params;
-  const sql = "SELECT * FROM administrador WHERE id = ?";
-  req.db.query(sql, [id], (err, results) => {
-    if (err) {
-      console.error("Error al obtener el administrador:", err);
-      return res.status(500).send("Error al obtener el administrador: " + err.message);
-    }
-    if (results.length === 0) {
-      return res.status(404).send("Administrador no encontrado.");
-    }
-    res.status(200).send(results[0]);
+    res.status(200).json(results);
   });
 });
 
@@ -113,9 +104,14 @@ app.get("/api/neumaticos", (req, res) => {
   req.db.query(sql, (err, results) => {
     if (err) {
       console.error("Error querying neumaticos table:", err);
-      return res.status(500).send("Error querying neumaticos table: " + err.message);
+      return res.status(500).json({ message: "Error al obtener neumáticos" });
     }
-    res.status(200).send(results);
+    results.forEach((neumatico) => {
+      if (neumatico.imagen) {
+        neumatico.imagen = `http://localhost:${port}/uploads/${neumatico.imagen}`;
+      }
+    });
+    res.status(200).json(results);
   });
 });
 
@@ -126,28 +122,23 @@ app.get("/api/neumaticos/:id", (req, res) => {
   req.db.query(sql, [id], (err, results) => {
     if (err) {
       console.error("Error querying neumaticos table:", err);
-      return res.status(500).send("Error al obtener el neumático: " + err.message);
+      return res.status(500).json({ message: "Error al obtener el neumático" });
     }
     if (results.length === 0) {
-      return res.status(404).send("Neumático no encontrado.");
+      return res.status(404).json({ message: "Neumático no encontrado" });
     }
-    res.status(200).send(results[0]);
+    if (results[0].imagen) {
+      results[0].imagen = `http://localhost:${port}/uploads/${results[0].imagen}`;
+    }
+    res.status(200).json(results[0]);
   });
 });
 
-// Ruta para agregar un neumático
-app.post("/api/neumaticos", (req, res) => {
-  const {
-    marca,
-    modelo,
-    alto,
-    ancho,
-    pulgada,
-    cantidad,
-    precio,
-    condicion,
-    imagen,
-  } = req.body;
+// Ruta para agregar un neumático con imagen
+app.post("/api/neumaticos", upload.single("imagen"), (req, res) => {
+  const { marca, modelo, alto, ancho, pulgada, cantidad, precio, condicion } =
+    req.body;
+  const imagen = req.file ? req.file.filename : null;
 
   if (
     !marca ||
@@ -159,21 +150,24 @@ app.post("/api/neumaticos", (req, res) => {
     precio === undefined ||
     !condicion
   ) {
-    return res.status(400).send("Todos los campos son obligatorios.");
+    return res
+      .status(400)
+      .json({ message: "Todos los campos son obligatorios" });
   }
 
   const sql =
     "INSERT INTO neumaticos (marca, modelo, alto, ancho, pulgada, cantidad, precio, condicion, imagen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
   req.db.query(
     sql,
     [marca, modelo, alto, ancho, pulgada, cantidad, precio, condicion, imagen],
     (err, result) => {
       if (err) {
         console.error("Error al agregar el neumático:", err);
-        return res.status(500).send("Error al agregar el neumático: " + err.message);
+        return res
+          .status(500)
+          .json({ message: "Error al agregar el neumático" });
       }
-      res.status(201).send({
+      res.status(201).json({
         message: "Neumático agregado exitosamente",
         id: result.insertId,
       });
@@ -196,10 +190,6 @@ app.put("/api/neumaticos/:id", (req, res) => {
     imagen,
   } = req.body;
 
-  if (cantidad < 0) {
-    return res.status(400).send("La cantidad no puede ser negativa.");
-  }
-
   const sql =
     "UPDATE neumaticos SET marca = ?, modelo = ?, alto = ?, ancho = ?, pulgada = ?, cantidad = ?, precio = ?, condicion = ?, imagen = ? WHERE id = ?";
   req.db.query(
@@ -219,9 +209,11 @@ app.put("/api/neumaticos/:id", (req, res) => {
     (err, result) => {
       if (err) {
         console.error("Error updating neumaticos:", err);
-        return res.status(500).send("Error updating neumaticos: " + err.message);
+        return res
+          .status(500)
+          .json({ message: "Error al actualizar el neumático" });
       }
-      res.status(200).send(result);
+      res.status(200).json({ message: "Neumático actualizado exitosamente" });
     }
   );
 });
@@ -233,11 +225,16 @@ app.delete("/api/neumaticos/:id", (req, res) => {
   req.db.query(sql, [id], (err, result) => {
     if (err) {
       console.error("Error al eliminar el neumático:", err);
-      return res.status(500).send("Error al eliminar el neumático: " + err.message);
+      return res
+        .status(500)
+        .json({ message: "Error al eliminar el neumático" });
     }
-    res.status(200).send({ message: "Neumático eliminado exitosamente" });
+    res.status(200).json({ message: "Neumático eliminado exitosamente" });
   });
 });
+
+// Servir archivos estáticos en la carpeta "uploads" para acceder a las imágenes
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.listen(port, () => {
   console.log(`API listening at http://localhost:${port}`);
