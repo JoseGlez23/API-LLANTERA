@@ -27,7 +27,15 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage: storage });
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith("image/")) {
+    cb(null, true);
+  } else {
+    cb(new Error("Solo se permiten archivos de imagen"), false);
+  }
+};
+
+const upload = multer({ storage: storage, fileFilter: fileFilter });
 
 // Configuración de la base de datos
 const dbConfig = {
@@ -98,19 +106,68 @@ app.get("/api/administrador", (req, res) => {
   });
 });
 
-// Ruta para obtener todos los neumáticos
+// Ruta para obtener neumáticos con filtros
 app.get("/api/neumaticos", (req, res) => {
-  const sql = "SELECT * FROM neumaticos";
-  req.db.query(sql, (err, results) => {
+  // Desestructurar los posibles filtros desde req.query
+  const { marca, modelo, alto, ancho, pulgada, cantidad, precio, condicion } =
+    req.query;
+
+  // Iniciar la consulta base
+  let sql = "SELECT * FROM neumaticos WHERE 1=1";
+  const params = [];
+
+  // Agregar condiciones a la consulta solo si se proporcionaron filtros
+  if (marca) {
+    sql += " AND marca LIKE ?";
+    params.push(`%${marca}%`);
+  }
+  if (modelo) {
+    sql += " AND modelo LIKE ?";
+    params.push(`%${modelo}%`);
+  }
+  if (alto) {
+    sql += " AND alto = ?";
+    params.push(parseInt(alto));
+  }
+  if (ancho) {
+    sql += " AND ancho = ?";
+    params.push(parseInt(ancho));
+  }
+  if (pulgada) {
+    sql += " AND pulgada = ?";
+    params.push(parseInt(pulgada));
+  }
+  if (cantidad) {
+    sql += " AND cantidad >= ?";
+    params.push(parseInt(cantidad));
+  }
+  if (precio) {
+    sql += " AND precio <= ?";
+    params.push(parseFloat(precio)); // Convertir a decimal
+  }
+  if (condicion) {
+    sql += " AND condicion = ?";
+    params.push(condicion);
+  }
+
+  // Depuración: Imprime la consulta y los parámetros
+  console.log("Consulta SQL:", sql);
+  console.log("Parámetros:", params);
+
+  // Ejecutar la consulta con los filtros aplicados
+  req.db.query(sql, params, (err, results) => {
     if (err) {
       console.error("Error querying neumaticos table:", err);
       return res.status(500).json({ message: "Error al obtener neumáticos" });
     }
+
+    // Formatear las URLs de imagen en los resultados
     results.forEach((neumatico) => {
       if (neumatico.imagen) {
         neumatico.imagen = `http://localhost:${port}/uploads/${neumatico.imagen}`;
       }
     });
+
     res.status(200).json(results);
   });
 });
@@ -159,7 +216,17 @@ app.post("/api/neumaticos", upload.single("imagen"), (req, res) => {
     "INSERT INTO neumaticos (marca, modelo, alto, ancho, pulgada, cantidad, precio, condicion, imagen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
   req.db.query(
     sql,
-    [marca, modelo, alto, ancho, pulgada, cantidad, precio, condicion, imagen],
+    [
+      marca,
+      modelo,
+      alto,
+      ancho,
+      pulgada,
+      cantidad,
+      parseFloat(precio),
+      condicion,
+      imagen,
+    ],
     (err, result) => {
       if (err) {
         console.error("Error al agregar el neumático:", err);
@@ -176,19 +243,11 @@ app.post("/api/neumaticos", upload.single("imagen"), (req, res) => {
 });
 
 // Ruta para actualizar un neumático
-app.put("/api/neumaticos/:id", (req, res) => {
+app.put("/api/neumaticos/:id", upload.single("imagen"), (req, res) => {
   const { id } = req.params;
-  const {
-    marca,
-    modelo,
-    alto,
-    ancho,
-    pulgada,
-    cantidad,
-    precio,
-    condicion,
-    imagen,
-  } = req.body;
+  const { marca, modelo, alto, ancho, pulgada, cantidad, precio, condicion } =
+    req.body;
+  const imagen = req.file ? req.file.filename : req.body.imagen;
 
   const sql =
     "UPDATE neumaticos SET marca = ?, modelo = ?, alto = ?, ancho = ?, pulgada = ?, cantidad = ?, precio = ?, condicion = ?, imagen = ? WHERE id = ?";
@@ -201,7 +260,7 @@ app.put("/api/neumaticos/:id", (req, res) => {
       ancho,
       pulgada,
       cantidad,
-      precio,
+      parseFloat(precio),
       condicion,
       imagen,
       id,
