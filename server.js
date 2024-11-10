@@ -106,17 +106,22 @@ app.get("/api/administrador", (req, res) => {
   });
 });
 
-// Ruta para obtener neumáticos con filtros
+// Ruta para obtener neumáticos con filtros y ordenamiento
 app.get("/api/neumaticos", (req, res) => {
-  // Desestructurar los posibles filtros desde req.query
-  const { marca, modelo, alto, ancho, pulgada, cantidad, precio, condicion } =
-    req.query;
-
-  // Iniciar la consulta base
+  const {
+    marca,
+    modelo,
+    alto,
+    ancho,
+    pulgada,
+    cantidad,
+    precio,
+    condicion,
+  } = req.query;
   let sql = "SELECT * FROM neumaticos WHERE 1=1";
   const params = [];
 
-  // Agregar condiciones a la consulta solo si se proporcionaron filtros
+  // Filtros opcionales
   if (marca) {
     sql += " AND marca LIKE ?";
     params.push(`%${marca}%`);
@@ -143,25 +148,23 @@ app.get("/api/neumaticos", (req, res) => {
   }
   if (precio) {
     sql += " AND precio <= ?";
-    params.push(parseFloat(precio)); // Convertir a decimal
+    params.push(parseFloat(precio));
   }
   if (condicion) {
     sql += " AND condicion = ?";
     params.push(condicion);
   }
 
-  // Depuración: Imprime la consulta y los parámetros
-  console.log("Consulta SQL:", sql);
-  console.log("Parámetros:", params);
+  // Cambiar ordenamiento: primero por marca y luego por modelo
+  sql += " ORDER BY marca ASC, modelo ASC";
 
-  // Ejecutar la consulta con los filtros aplicados
   req.db.query(sql, params, (err, results) => {
     if (err) {
       console.error("Error querying neumaticos table:", err);
       return res.status(500).json({ message: "Error al obtener neumáticos" });
     }
 
-    // Formatear las URLs de imagen en los resultados
+    // Actualizar URL de imágenes si existen
     results.forEach((neumatico) => {
       if (neumatico.imagen) {
         neumatico.imagen = `http://localhost:${port}/uploads/${neumatico.imagen}`;
