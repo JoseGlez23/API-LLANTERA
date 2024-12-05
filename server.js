@@ -39,10 +39,10 @@ const upload = multer({ storage: storage, fileFilter: fileFilter });
 
 // Configuración de la base de datos
 const dbConfig = {
-  host: "127.0.0.1",
-  user: "root",
-  password: "",
-  database: "llanteria",
+  host: "193.203.166.209",
+  user: "u937184617_llantera",
+  password: "TloBPp6#/3d",
+  database: "u937184617_llantera",
   connectTimeout: 10000,
   acquireTimeout: 10000,
   connectionLimit: 10,
@@ -108,16 +108,8 @@ app.get("/api/administrador", (req, res) => {
 
 // Ruta para obtener neumáticos con filtros y ordenamiento
 app.get("/api/neumaticos", (req, res) => {
-  const {
-    marca,
-    modelo,
-    alto,
-    ancho,
-    pulgada,
-    cantidad,
-    precio,
-    condicion,
-  } = req.query;
+  const { marca, modelo, alto, ancho, pulgada, cantidad, precio, condicion } =
+    req.query;
   let sql = "SELECT * FROM neumaticos WHERE 1=1";
   const params = [];
 
