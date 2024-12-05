@@ -159,7 +159,7 @@ app.get("/api/neumaticos", (req, res) => {
     // Actualizar URL de imágenes si existen
     results.forEach((neumatico) => {
       if (neumatico.imagen) {
-        neumatico.imagen = `http://localhost:${port}/uploads/${neumatico.imagen}`;
+        neumatico.imagen = `https://api-llantera-1.onrender.com/uploads/${neumatico.imagen}`;
       }
     });
 
@@ -180,7 +180,7 @@ app.get("/api/neumaticos/:id", (req, res) => {
       return res.status(404).json({ message: "Neumático no encontrado" });
     }
     if (results[0].imagen) {
-      results[0].imagen = `http://localhost:${port}/uploads/${results[0].imagen}`;
+      results[0].imagen = `https://api-llantera-1.onrender.com/uploads/${results[0].imagen}`;
     }
     res.status(200).json(results[0]);
   });
